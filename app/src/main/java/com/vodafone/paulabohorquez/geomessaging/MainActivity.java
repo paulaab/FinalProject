@@ -30,6 +30,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 
 import com.google.android.gms.maps.model.CameraPosition;
@@ -73,7 +74,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     Marker mCurrentLocation;
     Location mLastLocation;
     public int pastCellID;
-
+    boolean startedApp;
     /*---------------Initialize Variables - MSG ---------------------*/
     //Define Variables
     private Handler handler = new Handler();
@@ -99,6 +100,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        startedApp = false;
         /*-------------GOOGLE MAPS Initialization--------------------*/
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             checkLocationPermission();
@@ -116,35 +118,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         msgView.setAdapter(msgList);
 
         /*---------------Initialize buttons - MAPS ---------------------*/
-        final Button accidentButton = (Button) findViewById(R.id.accidentButton);
+    /*    final Button accidentButton = (Button) findViewById(R.id.accidentButton);
         final Button stopButton = (Button) findViewById(R.id.stopButton);
         final Button startButton = (Button) findViewById(R.id.startButton);
 
 
-        /*---------------Creating JSON Object-------------------*/
-        final JSONObject myJO = new JSONObject();
-        JSONArray jarr = new JSONArray();
-        //JSON Object for testing purposes
-        try {
-            myJO.put("MessageTypeID", 0);
-            myJO.put("Erzeugerzeitpunkt", 12);
-            myJO.put("Lebensdauer", 5000);
-            myJO.put("Lat", 51.23704062);
-            myJO.put("Longi",6.73670053);
-            myJO.put("Cell ID",jarr);
-            myJO.put("Message", "hello");
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
         /*-------------------Setting on-click listener for all buttons----------*/
 
-
+/*
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 //Find the multicast group
-                sendMessage(myJO.toString());
+
+                sendMessage(createMessage(0).toString());
                 try {
                     receiveMessage();
                 } catch (UnknownHostException e) {
@@ -167,18 +154,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         accidentButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //Sendtraffic icon
+                sendMessage(createMessage(1).toString());
 
             }
-        });
-
-
-
-
-
-
-
-
+        });-----*/
     }
 
 
@@ -215,12 +194,17 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 .build();
         //mMap.moveCamera(CameraUpdateFactory.newLatLng(latitlong));
         //mMap.animateCamera(CameraUpdateFactory.zoomTo(11));
-        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        //mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+
+        System.out.println("Location changed...");
+        if (startedApp){
+            sendMessage(createMessage(0).toString());
+        }
 
         //stop location updates
-        if (mGoogleApiClient != null) {
-            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, (com.google.android.gms.location.LocationListener) this);
-        }
+        //if (mGoogleApiClient != null) {
+          //  LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, (com.google.android.gms.location.LocationListener) this);
+        //}
 
     }
 
@@ -239,7 +223,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     changed = true;
                 }
             }
-
         }
         return changed;
 
@@ -253,6 +236,52 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
             LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest,this);
         }
+
+        /*---------------Initialize buttons - MAPS ---------------------*/
+        final Button accidentButton = (Button) findViewById(R.id.accidentButton);
+        final Button stopButton = (Button) findViewById(R.id.stopButton);
+        final Button startButton = (Button) findViewById(R.id.startButton);
+
+
+        /*-------------------Setting on-click listener for all buttons----------*/
+
+
+        startButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //Create sending socket
+                createSocketSend();
+                startedApp = true;
+                try {
+                    receiveMessage();
+                } catch (UnknownHostException e) {
+                    e.printStackTrace();
+                }
+                //Join the group if necessary
+                //Display message received on screen
+
+            }
+        });
+
+        stopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //Sendtraffic icon
+
+            }
+        });
+
+        accidentButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sendMessage(createMessage(1).toString());
+
+            }
+        });
+
+
+
+
     }
 
     @Override
@@ -334,8 +363,58 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 /*-----------------------------MESSAGING METHODS---------------------------------*/
+    public JSONObject createMessage(int type){
+
+
+         /*---------------Creating JSON Object-------------------*/
+        final JSONObject myJO = new JSONObject();
+        JSONArray jarr = new JSONArray();
+        //JSON Object to store data
+        try {
+            myJO.put("MessageTypeID", type);
+            myJO.put("Erzeugerzeitpunkt", 12);
+            myJO.put("Lebensdauer", 5000);
+            myJO.put("Lat",mLastLocation.getLatitude());
+            myJO.put("Longi",mLastLocation.getLongitude());
+            myJO.put("Cell ID",jarr);
+            myJO.put("Message", "Hello world");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return myJO;
+    }
 
 /*-------------------------Sending ------------------------------------------*/
+
+    public void createSocketSend() {
+        if (mcSocketSend == null) {
+            try {
+                GROUP = InetAddress.getByName(MCAST_ADDR);
+                mcSocketSend = new MulticastSocket(PORT_NUM);
+
+                //Use in case of IPv6 problems on Samsung...
+                NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                if (null != nif) {
+                    System.out.println("picking interface " + nif.getName() + " for transmit");
+                    mcSocketSend.setNetworkInterface(nif);
+                }
+                //...Until here.
+
+                mcSocketSend.joinGroup(GROUP);
+
+            } catch (Exception e) {
+                Log.d("Error in the socket: ", e.getMessage());
+
+            }
+
+
+        }
+    }
+
+
+
+
+
 
 
     public void sendMessage(String message ) throws IllegalArgumentException {
@@ -347,7 +426,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         new Thread(new Runnable() {
             @Override
             public void run() {
-                // Create the Multicast sending socket and join Multicast Group
+                /*/ Create the Multicast sending socket and join Multicast Group
                 if (mcSocketSend == null) {
                     try {
                         GROUP = InetAddress.getByName(MCAST_ADDR);
@@ -367,7 +446,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         Log.d("Error in the socket: ", e.getMessage());
 
                     }
-                }
+                }*/
 
 //Build the Datagram Packet
 
@@ -391,8 +470,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 /*-------------------------Receiving methods----------------------------------------*/
-
-
 
 
     public void receiveMessage() throws UnknownHostException {
@@ -439,76 +516,46 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-
-
     public void interpretMessage (String msgReceived){
-
         try {
-
             JSONObject rjsonObj = new JSONObject(msgReceived);
-            //Get keys and values to use in the future
+            //Get keys and values to use in the futur
+            Double Lati = rjsonObj.getDouble("Lat");
+            Double Longi = rjsonObj.getDouble("Longi");
             final String Message = (String) rjsonObj.get("Message");
             int MessageType = rjsonObj.getInt("MessageTypeID");
-            final Long TimeToLive = rjsonObj.getLong("Lebensdauer");
-            final Long Lati = rjsonObj.getLong("Lat");
-            final Long Longi = rjsonObj.getLong("Longi");
+            //LatLng LatLong = new LatLng(rjsonObj.getDouble("Lat"),rjsonObj.getDouble("Long"));
+            Long TimeToLive = (long) rjsonObj.getDouble("Lebensdauer");
+            String situation = "Null";
 
             switch (MessageType){
                 //Position Daten
                 case 0:
-                    runOnUiThread(new Runnable(){
-                        @Override
-                        public void run(){
-
-                            int id = getResources().getIdentifier("pink", "drawable", getPackageName());
-                            LatLng myPosition = new LatLng(Lati, Longi);
-
-                            Marker mar = mMap.addMarker(new MarkerOptions()
-                                    .position(myPosition)
-                                    .icon(BitmapDescriptorFactory.fromResource(id))
-                            );
-                            fadeTime(TimeToLive,mar);
-                        }
-
-                    });
+                    situation = "Location";
 
                 break;
                 //Unfall
                 case 1:
+                    situation = "accident";
 
                     break;
                 //Stau
                 case 2:
-
+                    situation="trafficjam";
 
                     break;
                 //Speedlimit
                 case 3:
-
-
-
+                    situation="speedlimit";
                     break;
                 //Error
                 default:
                     System.out.println("Error: Incompatible message type");
                     break;
-
-
-
-
-
-
-
-
             }
 
+            displayMarker(Lati,Longi,TimeToLive,situation);
             displayMsg(Message);
-
-
-
-
-
-
 
         } catch (JSONException e) {
             e.printStackTrace();
@@ -530,22 +577,44 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public void displayMsg(String msg) {
         if (!shutdown) {
             final String mensajeRecibido = msg;
-            System.out.println("Inside dispmsg");
-
-
             handler.post(new Runnable() {
                 @Override
                 public void run() {
-                    //TODO Auto-generated method stub
-                    System.out.println("Inside Handler start");
                     msgList.add(mensajeRecibido);
                     msgView.setAdapter(msgList);
                     msgView.smoothScrollToPosition(msgList.getCount() - 1);
-                    System.out.println("Inside Handler fertig");
                 }
             });
-
         }
+    }
+
+    /*------------Display a Marker on the Map----------*/
+    public void displayMarker(final Double Lati, final Double Longi, long TTL, String type){
+        final Double lon = Longi;
+        final Double lat = Lati;
+        final long TimeToLive = TTL;
+        final BitmapDescriptor myicon;
+
+        if (type=="Location"){
+            int id = getResources().getIdentifier("pink", "drawable", getPackageName());
+            myicon = BitmapDescriptorFactory.fromResource(id);
+        }
+        else {
+            myicon = BitmapDescriptorFactory.fromBitmap(resizer(type, 70, 70));
+        };
+
+        runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
+                LatLng pos = new LatLng(Lati,Longi);
+                Marker mar = mMap.addMarker(new MarkerOptions()
+                        .position(pos)
+                        .icon(myicon)
+                );
+                fadeTime(TimeToLive,mar);
+            }
+
+        });
     }
 
 /*-----Customize characteristics of the markers: Size and time to fade--------*/
@@ -569,6 +638,32 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         });
         myAnim.start();
     }
+    /*------------------------ANDROID ACTIVITY METHODS------------*/
+    @Override
+    public void onPause() {
+        super.onPause();
+
+        //stop location updates when Activity is no longer active
+        if (mGoogleApiClient != null) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        }
+    }
+
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mGoogleApiClient != null &&
+                ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED) {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+        }
+    }
+
+
+
+
 
 
 
