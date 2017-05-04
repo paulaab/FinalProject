@@ -82,7 +82,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public ArrayAdapter<String> msgList;
     protected int PORTDENM = 5432;
     protected int PORTCAM = 5433;
-    private static final String MCAST_ADDR = "FF02::1";//"FF01::101"; //IPV6 ADDRESS
+    private static final String MCAST_ADDR = "FF02::1";
     private static InetAddress GROUP;
     private MulticastSocket mcSocketCam;
     private MulticastSocket mcSocketDenm;
@@ -262,9 +262,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                     Manifest.permission.ACCESS_FINE_LOCATION)) {
 
-                // Show an expanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
 
                 //Prompt the user once explanation has been shown
                 ActivityCompat.requestPermissions(this,
@@ -273,7 +270,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
 
             } else {
-                // No explanation needed, we can request the permission.
+                // No explanation needed, request the permission.
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                         MY_PERMISSIONS_REQUEST_LOCATION);
@@ -343,13 +340,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 GROUP = InetAddress.getByName(MCAST_ADDR);
                 mcSocketCam = new MulticastSocket(PORTCAM);
 
-                //Use in case of IPv6 problems on Samsung...
+                /*Uncomment in case of IPv6 problems on Samsung
                 NetworkInterface nif = NetworkInterface.getByName("wlan0");
                 if (null != nif) {
                     System.out.println("picking interface " + nif.getName() + " for CAM transmit");
                     mcSocketCam.setNetworkInterface(nif);
-                }
-                //...Until here.
+                } */
 
                 mcSocketCam.joinGroup(GROUP);
 
@@ -363,13 +359,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 GROUP = InetAddress.getByName(MCAST_ADDR);
                 mcSocketDenm = new MulticastSocket(PORTDENM);
 
-                //Use in case of IPv6 problems on Samsung...
+                /*Uncomment in case of IPv6 problems on Samsung
                 NetworkInterface nif = NetworkInterface.getByName("wlan0");
                 if (null != nif) {
-                    System.out.println("picking interface " + nif.getName() + " for DENM transmit");
                     mcSocketDenm.setNetworkInterface(nif);
-                }
-                //...Until here.
+                }*/
 
                 mcSocketDenm.joinGroup(GROUP);
             } catch (Exception e) {
@@ -389,27 +383,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         new Thread(new Runnable() {
             @Override
             public void run() {
-                /*/ Create the Multicast sending socket and join Multicast Group
-                if (mcSocketSend == null) {
-                    try {
-                        GROUP = InetAddress.getByName(MCAST_ADDR);
-                        mcSocketSend = new MulticastSocket(PORT_NUM);
-
-                        //Use in case of IPv6 problems on Samsung...
-                        NetworkInterface nif = NetworkInterface.getByName("wlan0");
-                        if (null != nif) {
-                            System.out.println( "picking interface "+nif.getName()+" for transmit");
-                            mcSocketSend.setNetworkInterface(nif);
-                        }
-                        //...Until here.
-
-                        mcSocketSend.joinGroup(GROUP);
-
-                    } catch (Exception e) {
-                        Log.d("Error in the socket: ", e.getMessage());
-
-                    }
-                }*/
 
 //Build the Datagram Packet
 
@@ -440,13 +413,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             public void run() {
 
                 try {
-                    //Uncomment in case of IPv6 problems on Samsung...
-                    /*NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                    /*Uncomment in case of IPv6 problems on Samsung
+                    NetworkInterface nif = NetworkInterface.getByName("wlan0");
                     if (null != nif) {
-                        System.out.println( "picking interface "+nif.getName()+" for transmit");
                         mcSocketCam.setNetworkInterface(nif);
-
-                    }*/
+                        }*/
 
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
@@ -473,12 +444,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void run() {
                 try {
-                    //Uncomment in case of IPv6 problems on Samsung...
-                    /*NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                    /*Uncomment in case of IPv6 problems on Samsung
+                    NetworkInterface nif = NetworkInterface.getByName("wlan0");
                     if (null != nif) {
-                        System.out.println( "picking interface "+nif.getName()+" for transmit");
                         mcSocketDenm.setNetworkInterface(nif);
-
                     }*/
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
@@ -568,12 +537,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     /*------------Display a Marker on the Map----------*/
     public void displayMarker(final Double Lati, final Double Longi, long TTL, String type){
-        final Double lon = Longi;
-        final Double lat = Lati;
         final long TimeToLive = TTL;
         final BitmapDescriptor myicon;
 
-        if (type=="Location"){
+        if (type.equals("Location")){
             int id = getResources().getIdentifier("pink", "drawable", getPackageName());
             myicon = BitmapDescriptorFactory.fromResource(id);
         }
