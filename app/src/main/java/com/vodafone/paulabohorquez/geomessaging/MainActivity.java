@@ -74,22 +74,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     Marker mCurrentLocation;
     Location mLastLocation;
     public int pastCellID;
-    boolean startedApp;
+
     /*---------------Initialize Variables - MSG ---------------------*/
-    //Define Variables
+
     private Handler handler = new Handler();
     public ListView msgView;
     public ArrayAdapter<String> msgList;
-    protected Context context;
-    private static WifiManager wifi_manager;
-    protected int PORT_NUM = 5432;
-    private static final String MESSAGE = "Hello World!";
+    protected int PORTDENM = 5432;
+    protected int PORTCAM = 5433;
     private static final String MCAST_ADDR = "FF02::1";//"FF01::101"; //IPV6 ADDRESS
     private static InetAddress GROUP;
-    private MulticastSocket mcSocketSend;
+    private MulticastSocket mcSocketCam;
+    private MulticastSocket mcSocketDenm;
     private DatagramPacket mcPacketSend;
-    public MulticastSocket mcSocketRecv = new MulticastSocket(PORT_NUM);
-    volatile boolean shutdown = false;
+    volatile boolean startedApp = false;
 
     public MainActivity() throws IOException {
         System.out.println("Could not set up recv socket");
@@ -100,7 +98,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        startedApp = false;
+
+
         /*-------------GOOGLE MAPS Initialization--------------------*/
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             checkLocationPermission();
@@ -117,47 +116,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 android.R.layout.simple_list_item_1);
         msgView.setAdapter(msgList);
 
-        /*---------------Initialize buttons - MAPS ---------------------*/
-    /*    final Button accidentButton = (Button) findViewById(R.id.accidentButton);
-        final Button stopButton = (Button) findViewById(R.id.stopButton);
-        final Button startButton = (Button) findViewById(R.id.startButton);
 
-
-        /*-------------------Setting on-click listener for all buttons----------*/
-
-/*
-        startButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //Find the multicast group
-
-                sendMessage(createMessage(0).toString());
-                try {
-                    receiveMessage();
-                } catch (UnknownHostException e) {
-                    e.printStackTrace();
-                }
-                //Join the group if necessary
-                //Display message received on screen
-
-            }
-        });
-
-        stopButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //Sendtraffic icon
-
-            }
-        });
-
-        accidentButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                sendMessage(createMessage(1).toString());
-
-            }
-        });-----*/
     }
 
 
@@ -187,25 +146,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
         //Place my location Marker
         LatLng latitlong = new LatLng(location.getLatitude(), location.getLongitude());
-        //move map camera
         CameraPosition cameraPosition = new CameraPosition.Builder()
                 .target(latitlong)
                 .zoom(17)
                 .build();
-        //mMap.moveCamera(CameraUpdateFactory.newLatLng(latitlong));
-        //mMap.animateCamera(CameraUpdateFactory.zoomTo(11));
+        //Uncomment the following to animate Camera to follow always location:
         //mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
 
-        System.out.println("Location changed...");
         if (startedApp){
-            sendMessage(createMessage(0).toString());
+            sendMessage(createMessage(0,5000, "This is my position").toString(), PORTCAM, mcSocketCam);
         }
-
-        //stop location updates
-        //if (mGoogleApiClient != null) {
-          //  LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, (com.google.android.gms.location.LocationListener) this);
-        //}
-
     }
 
 //Check if the Cell ID changed, when location changed.
@@ -242,46 +192,46 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         final Button stopButton = (Button) findViewById(R.id.stopButton);
         final Button startButton = (Button) findViewById(R.id.startButton);
 
-
         /*-------------------Setting on-click listener for all buttons----------*/
-
 
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //Create sending socket
-                createSocketSend();
                 startedApp = true;
+                //Create CAM and DENM sockets
+                createSockets();
+                //Allow reception from messages in two different threads
                 try {
-                    receiveMessage();
+                    receiveMessageCAM();
+                    receiveMessageDENM();
                 } catch (UnknownHostException e) {
                     e.printStackTrace();
                 }
-                //Join the group if necessary
-                //Display message received on screen
-
             }
         });
 
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //Sendtraffic icon
+                startedApp = false;
+                //Leave multicast group for the two sockets
+                try {
+                    mcSocketDenm.leaveGroup(GROUP);
+                    mcSocketCam.leaveGroup(GROUP);
 
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         });
+
 
         accidentButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sendMessage(createMessage(1).toString());
-
+                sendMessage(createMessage(1, 5000, "Unfall 1").toString(), PORTDENM, mcSocketDenm);
             }
         });
-
-
-
-
     }
 
     @Override
@@ -333,6 +283,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             return true;
         }
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            String permissions[], int[] grantResults) {
@@ -363,7 +314,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 /*-----------------------------MESSAGING METHODS---------------------------------*/
-    public JSONObject createMessage(int type){
+    public JSONObject createMessage(int type, long timetolive, String message){
 
 
          /*---------------Creating JSON Object-------------------*/
@@ -373,11 +324,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         try {
             myJO.put("MessageTypeID", type);
             myJO.put("Erzeugerzeitpunkt", 12);
-            myJO.put("Lebensdauer", 5000);
+            myJO.put("Lebensdauer", timetolive);
             myJO.put("Lat",mLastLocation.getLatitude());
             myJO.put("Longi",mLastLocation.getLongitude());
             myJO.put("Cell ID",jarr);
-            myJO.put("Message", "Hello world");
+            myJO.put("Message", message);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -386,41 +337,53 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
 /*-------------------------Sending ------------------------------------------*/
 
-    public void createSocketSend() {
-        if (mcSocketSend == null) {
+    public void createSockets() {
+        if (mcSocketCam == null) {
             try {
                 GROUP = InetAddress.getByName(MCAST_ADDR);
-                mcSocketSend = new MulticastSocket(PORT_NUM);
+                mcSocketCam = new MulticastSocket(PORTCAM);
 
                 //Use in case of IPv6 problems on Samsung...
                 NetworkInterface nif = NetworkInterface.getByName("wlan0");
                 if (null != nif) {
-                    System.out.println("picking interface " + nif.getName() + " for transmit");
-                    mcSocketSend.setNetworkInterface(nif);
+                    System.out.println("picking interface " + nif.getName() + " for CAM transmit");
+                    mcSocketCam.setNetworkInterface(nif);
                 }
                 //...Until here.
 
-                mcSocketSend.joinGroup(GROUP);
+                mcSocketCam.joinGroup(GROUP);
 
             } catch (Exception e) {
-                Log.d("Error in the socket: ", e.getMessage());
-
+                Log.d("Error CAM socket: ", e.getMessage());
             }
+        }
 
+        if (mcSocketDenm == null) {
+            try {
+                GROUP = InetAddress.getByName(MCAST_ADDR);
+                mcSocketDenm = new MulticastSocket(PORTDENM);
 
+                //Use in case of IPv6 problems on Samsung...
+                NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                if (null != nif) {
+                    System.out.println("picking interface " + nif.getName() + " for DENM transmit");
+                    mcSocketDenm.setNetworkInterface(nif);
+                }
+                //...Until here.
+
+                mcSocketDenm.joinGroup(GROUP);
+            } catch (Exception e) {
+                Log.d("Error DENM socket: ", e.getMessage());
+            }
         }
     }
 
 
-
-
-
-
-
-    public void sendMessage(String message ) throws IllegalArgumentException {
+    public void sendMessage(String message, int port, final MulticastSocket socketType ) throws IllegalArgumentException {
         if (message == null || message.length() == 0) {
             throw new IllegalArgumentException();
         }
+        final int myport = port;
         final String mensaje = message;
 
         new Thread(new Runnable() {
@@ -451,15 +414,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 //Build the Datagram Packet
 
                 try {
-                    mcPacketSend = new DatagramPacket(mensaje.getBytes(), mensaje.length(), GROUP, PORT_NUM);
-
+                    mcPacketSend = new DatagramPacket(mensaje.getBytes(), mensaje.length(), GROUP, myport);
                 } catch (Exception e) {
                     Log.v("Error creating packet: ", e.getMessage());
                 }
-
 //Send the packet
                 try {
-                    mcSocketSend.send(mcPacketSend);
+                    socketType.send(mcPacketSend);
+                    //mcSocketCam.send(mcPacketSend);
                 } catch (IOException e) {
                     System.out.println("There was an error sending the packet");
                     e.printStackTrace();
@@ -469,44 +431,32 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }).start();
     }
 
-/*-------------------------Receiving methods----------------------------------------*/
+/*-------------------------Receiving -------------------------------------------*/
 
-
-    public void receiveMessage() throws UnknownHostException {
+    public void receiveMessageCAM() throws UnknownHostException {
         giveLock();
-        // Get the address of the group that we are going to connect to
-        final InetAddress addressGroup = InetAddress.getByName(MCAST_ADDR);
-        System.out.println("Inside method");
         new Thread(new Runnable() {
             @Override
             public void run() {
 
-
-//Create the Multicast receiving socket and join Multicast Group
-
                 try {
-                    //Use in case of IPv6 problems on Samsung...
-                    NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                    //Uncomment in case of IPv6 problems on Samsung...
+                    /*NetworkInterface nif = NetworkInterface.getByName("wlan0");
                     if (null != nif) {
                         System.out.println( "picking interface "+nif.getName()+" for transmit");
-                        mcSocketRecv.setNetworkInterface(nif);
-                    }
-                    //...Until here.
-                    mcSocketRecv.joinGroup(addressGroup);
+                        mcSocketCam.setNetworkInterface(nif);
 
-                    while (!shutdown) {
+                    }*/
+
+                    while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
                         byte[] buffer = new byte[256];
-                        // Receive the info on a socket and print it on the screen
+                        // Receive the info on the CAM Socket
                         DatagramPacket mcPacketRecv = new DatagramPacket(buffer, buffer.length);
-                        mcSocketRecv.receive(mcPacketRecv);
-
+                        mcSocketCam.receive(mcPacketRecv);
+                        //Decide what to show with info received
                         String msg = new String(buffer, 0, buffer.length);
                         interpretMessage(msg);
-
-                        //System.out.println("Socket 1 received msg: " + msg);
-                        //displayMsg(msg);
-
                     }
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -516,15 +466,44 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+
+    public void receiveMessageDENM() throws UnknownHostException {
+        giveLock();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    //Uncomment in case of IPv6 problems on Samsung...
+                    /*NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                    if (null != nif) {
+                        System.out.println( "picking interface "+nif.getName()+" for transmit");
+                        mcSocketDenm.setNetworkInterface(nif);
+
+                    }*/
+                    while (startedApp){
+                        // Create a buffer of bytes, which will be used to store incoming messages
+                        byte[] buffer = new byte[256];
+                        // Receive the info on a socket and print it on the screen
+                        DatagramPacket mcPacketRecv2 = new DatagramPacket(buffer, buffer.length);
+                        mcSocketDenm.receive(mcPacketRecv2);
+                        String msg = new String(buffer, 0, buffer.length);
+                        interpretMessage(msg);
+                    }
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
     public void interpretMessage (String msgReceived){
         try {
             JSONObject rjsonObj = new JSONObject(msgReceived);
-            //Get keys and values to use in the futur
+            //Get keys and values to use in the future
             Double Lati = rjsonObj.getDouble("Lat");
             Double Longi = rjsonObj.getDouble("Longi");
             final String Message = (String) rjsonObj.get("Message");
             int MessageType = rjsonObj.getInt("MessageTypeID");
-            //LatLng LatLong = new LatLng(rjsonObj.getDouble("Lat"),rjsonObj.getDouble("Long"));
             Long TimeToLive = (long) rjsonObj.getDouble("Lebensdauer");
             String situation = "Null";
 
@@ -553,18 +532,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     System.out.println("Error: Incompatible message type");
                     break;
             }
-
+            //Display icon on map and message received on the screen
             displayMarker(Lati,Longi,TimeToLive,situation);
             displayMsg(Message);
 
         } catch (JSONException e) {
             e.printStackTrace();
         }
-
-
     }
 
-
+    //In some android devices, where is unabled by default used to allow incoming Multicast Messages.
     public void giveLock () {
         WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         WifiManager.MulticastLock multicastLock = wifi.createMulticastLock("multicastLock");
@@ -575,7 +552,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 /*-----------------------Display my message--------------------------------*/
 
     public void displayMsg(String msg) {
-        if (!shutdown) {
+        if (startedApp) {
             final String mensajeRecibido = msg;
             handler.post(new Runnable() {
                 @Override
@@ -661,12 +638,25 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            mcSocketCam.leaveGroup(GROUP);
+            mcSocketCam.close();
 
 
+            mcSocketDenm.leaveGroup(GROUP);
+            mcSocketDenm.close();
 
 
-
-
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (mGoogleApiClient != null) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        }
+    }
 }
 
 
