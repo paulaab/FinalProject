@@ -154,7 +154,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         //mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
 
         if (startedApp){
-            sendMessage(createMessage(0,5000, "This is my position").toString(), PORTCAM, mcSocketCam);
+            sendMessage(createMessage(0,5000, "None").toString(), PORTCAM, mcSocketCam);
         }
     }
 
@@ -534,8 +534,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
             //Display icon on map and message received on the screen
             displayMarker(Lati,Longi,TimeToLive,situation);
-            displayMsg(Message);
-
+            if (!(Message.equals("None"))) {
+                displayMsg(Message);
+            }
         } catch (JSONException e) {
             e.printStackTrace();
         }
