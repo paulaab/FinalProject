@@ -73,24 +73,32 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     LocationRequest mLocationRequest;
     Marker mCurrentLocation;
     Location mLastLocation;
+    /*---------------Initialize Variables - NETWORK----------------*/
+    public int mcc;
+    public int mnc;
+    public int lac;
     public int pastCellID;
+    public boolean changed;
 
     /*---------------Initialize Variables - MSG ---------------------*/
 
     private Handler handler = new Handler();
     public ListView msgView;
     public ArrayAdapter<String> msgList;
-    protected int PORTDENM = 5432;
-    protected int PORTCAM = 5433;
-    private static final String MCAST_ADDR = "FF02::1";
+    protected int PORTDENM = 8006;//5432;
+    protected int PORTCAM = 8005;//5433;
+
+    private static String MCAST_ADDR = "FF02::1"; //Default address
+
     private static InetAddress GROUP;
     private MulticastSocket mcSocketCam;
     private MulticastSocket mcSocketDenm;
     private DatagramPacket mcPacketSend;
     volatile boolean startedApp = false;
+    public TelephonyManager telephony;
 
     public MainActivity() throws IOException {
-        System.out.println("Could not set up recv socket");
+        System.out.println("Could not set up the sockets");
     }
 
 
@@ -116,7 +124,17 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 android.R.layout.simple_list_item_1);
         msgView.setAdapter(msgList);
 
-
+        /*-----Telephony Manager initialization-----*/
+        telephony = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        if (telephony.getPhoneType() == TelephonyManager.PHONE_TYPE_GSM) {
+            final GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
+            if (gsmlocation != null) {
+                pastCellID = gsmlocation.getCid();
+                System.out.println("Cell ID:"+pastCellID);
+                //System.out.println(getGroupAddr(pastCellID));
+                //MCAST_ADDR = "FF02::1";
+            }
+        }
     }
 
 
@@ -152,31 +170,59 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 .build();
         //Uncomment the following to animate Camera to follow always location:
         //mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
-
-        if (startedApp){
-            sendMessage(createMessage(0,5000, "None").toString(), PORTCAM, mcSocketCam);
+    /*-------------Send messages with my current location-------*/
+        if (startedApp) {
+            sendMessage(createMessage(0, 5000, "None").toString(), PORTCAM, mcSocketCam);
         }
-    }
 
+
+
+        /*-----------Check if Cell changed, if so then recalculate Multicast IP address--------*/
+
+    /*========================
+        if (changedCellID()){
+
+            try {
+                mcSocketDenm.leaveGroup(GROUP);
+                mcSocketCam.leaveGroup(GROUP);
+                createSockets(getGroupAddr(pastCellID));
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } ============================ */
+    }
+    /*
+======================================================
 //Check if the Cell ID changed, when location changed.
-    public boolean changedCellID(){
-        //Confirm if the Cell ID is the same
-        boolean changed = false;
-        final TelephonyManager telephony = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+    public String changedCellID(){
         if (telephony.getPhoneType() == TelephonyManager.PHONE_TYPE_GSM) {
             final GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
             if (gsmlocation != null) {
                 if (gsmlocation.getCid() == pastCellID){
-                    changed = false;}
+                    changed = false;
+                }
                 else {
-                    pastCellID = gsmlocation.getCid();
+
                     changed = true;
                 }
             }
         }
-        return changed;
 
+        return MCAST_ADDR;
     }
+//Calculate IP Multicast Address
+    public String getGroupAddr (int cellid){
+        pastCellID = gsmlocation.getCid();
+        mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0 , 3));
+
+        String cid = Integer.toHexString(cellid);
+        MCAST_ADDR = "FF1E"+mcc+mnc+lac+cid;
+        return MCAST_ADDR;
+    }
+
+    ==================================================*/
+
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         mLocationRequest = new LocationRequest();
@@ -199,7 +245,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View v) {
                 startedApp = true;
                 //Create CAM and DENM sockets
-                createSockets();
+                createSockets(MCAST_ADDR);
                 //Allow reception from messages in two different threads
                 try {
                     receiveMessageCAM();
@@ -229,7 +275,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         accidentButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sendMessage(createMessage(1, 5000, "Unfall 1").toString(), PORTDENM, mcSocketDenm);
+                sendMessage(createMessage(1, 5000, "Unfall ").toString(), PORTDENM, mcSocketDenm);
             }
         });
     }
@@ -311,6 +357,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 /*-----------------------------MESSAGING METHODS---------------------------------*/
+
+
     public JSONObject createMessage(int type, long timetolive, String message){
 
 
@@ -334,10 +382,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
 /*-------------------------Sending ------------------------------------------*/
 
-    public void createSockets() {
+    public void createSockets(String mcAddress) {
         if (mcSocketCam == null) {
             try {
-                GROUP = InetAddress.getByName(MCAST_ADDR);
+                GROUP = InetAddress.getByName(mcAddress);
                 mcSocketCam = new MulticastSocket(PORTCAM);
 
                 /*Uncomment in case of IPv6 problems on Samsung
@@ -345,7 +393,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 if (null != nif) {
                     System.out.println("picking interface " + nif.getName() + " for CAM transmit");
                     mcSocketCam.setNetworkInterface(nif);
-                } */
+                }*/
 
                 mcSocketCam.joinGroup(GROUP);
 
@@ -356,14 +404,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         if (mcSocketDenm == null) {
             try {
-                GROUP = InetAddress.getByName(MCAST_ADDR);
+                GROUP = InetAddress.getByName(mcAddress);
                 mcSocketDenm = new MulticastSocket(PORTDENM);
 
-                /*Uncomment in case of IPv6 problems on Samsung
+                /*Uncomment in case of IPv6 problems on Samsung*/
                 NetworkInterface nif = NetworkInterface.getByName("wlan0");
                 if (null != nif) {
                     mcSocketDenm.setNetworkInterface(nif);
-                }*/
+                }
 
                 mcSocketDenm.joinGroup(GROUP);
             } catch (Exception e) {
@@ -413,15 +461,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             public void run() {
 
                 try {
-                    /*Uncomment in case of IPv6 problems on Samsung
+                    /*Uncomment in case of IPv6 problems on Samsung*/
                     NetworkInterface nif = NetworkInterface.getByName("wlan0");
                     if (null != nif) {
                         mcSocketCam.setNetworkInterface(nif);
-                        }*/
-
+                        }
+                    byte[] buffer = new byte[256];
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
-                        byte[] buffer = new byte[256];
+
                         // Receive the info on the CAM Socket
                         DatagramPacket mcPacketRecv = new DatagramPacket(buffer, buffer.length);
                         mcSocketCam.receive(mcPacketRecv);
@@ -444,11 +492,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void run() {
                 try {
-                    /*Uncomment in case of IPv6 problems on Samsung
+                    /*Uncomment in case of IPv6 problems on Samsung*/
                     NetworkInterface nif = NetworkInterface.getByName("wlan0");
                     if (null != nif) {
                         mcSocketDenm.setNetworkInterface(nif);
-                    }*/
+                    }
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
                         byte[] buffer = new byte[256];
