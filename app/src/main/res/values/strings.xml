@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">GeoMessaging</string>
-    <string name="title_activity_main">Map</string>
+    <string name="title_activity_main">GEO Messaging</string>
 </resources>
