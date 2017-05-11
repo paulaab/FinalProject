@@ -60,6 +60,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.lang.String;
+import java.math.BigInteger;
 import java.net.MulticastSocket;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -87,7 +88,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public int pastCellID;
     public boolean changed;
     public String temp;
-    public String temp2;
+
 
     /*---------------Initialize Variables - MSG ---------------------*/
 
@@ -149,9 +150,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (gsmlocation != null) {
                 pastCellID = gsmlocation.getCid();
                 System.out.println("Cell ID:"+pastCellID);
-
-                //System.out.println(getGroupAddr(pastCellID));
-                //MCAST_ADDR = "FF02::1";
+                //getGroupAddr();
+                //System.out.println(MCAST_ADDR);
             }
         }
 
@@ -205,7 +205,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             try {
                 mcSocketDenm.leaveGroup(GROUP);
                 mcSocketCam.leaveGroup(GROUP);
-                createSockets(getGroupAddr(pastCellID));
+                createSockets(getGroupAddr());
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -232,6 +232,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 //Calculate IP Multicast Address
     public String getGroupAddr (){
+        String sub1;
+        String sub2;
         GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
         String networkOperator = telephony.getNetworkOperator();
         if (gsmlocation != null && networkOperator != null ) {
@@ -240,14 +242,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
             cid = gsmlocation.getCid();
             temp = "" + mcc + mnc + lac + cid;
-            temp2 = Integer.toHexString(Integer.parseInt(temp));
-            for (int i=temp2.length()-1; i>=0;i--){
-
-
+            temp = Integer.toHexString(Integer.parseInt(temp));
+            String toHex = new BigInteger(temp).toString(16);
+            sub1 = toHex.substring(0,toHex.length()%4);
+            for(int i = toHex.length()%4; i<toHex.length(); i+=4){
+                sub2 = toHex.substring(i,i+4);
+                sub1 = sub1 + ":"+sub2;
             }
-
-
-            MCAST_ADDR = "FF1E::"+ temp2;
+            MCAST_ADDR = "FF1E::"+ sub1;
         }
         return MCAST_ADDR;
     }
@@ -397,14 +399,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         final JSONObject myJO = new JSONObject();
         JSONArray jarr = new JSONArray();
         //jarr = jarr.put(pastCellID);
-        
+        jarr.put(0);
         //JSON Object to store data
         try {
             myJO.put("MessageTypeID", type);
-            myJO.put("Erzeugerzeitpunkt", 12);
-            myJO.put("Lebensdauer", timetolive);
+            myJO.put("CreationTime", 12);
+            myJO.put("LifeTime", timetolive);
             myJO.put("Lat",mLastLocation.getLatitude());
-            myJO.put("Longi",mLastLocation.getLongitude());
+            myJO.put("Long",mLastLocation.getLongitude());
             myJO.put("Cell ID",jarr);
             myJO.put("Message", message);
         } catch (JSONException e) {
@@ -421,12 +423,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 GROUP = InetAddress.getByName(mcAddress);
                 mcSocketCam = new MulticastSocket(PORTCAM);
 
-                /*Uncomment in case of IPv6 problems on Samsung
+                //Uncomment in case of IPv6 problems on Samsung
                 NetworkInterface nif = NetworkInterface.getByName("wlan0");
                 if (null != nif) {
                     System.out.println("picking interface " + nif.getName() + " for CAM transmit");
                     mcSocketCam.setNetworkInterface(nif);
-                }*/
+                }
 
                 mcSocketCam.joinGroup(GROUP);
 
@@ -440,11 +442,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 GROUP = InetAddress.getByName(mcAddress);
                 mcSocketDenm = new MulticastSocket(PORTDENM);
 
-                /*Uncomment in case of IPv6 problems on Samsung
+                //Uncomment in case of IPv6 problems on Samsung
                 NetworkInterface nif = NetworkInterface.getByName("wlan0");
                 if (null != nif) {
                     mcSocketDenm.setNetworkInterface(nif);
-                }*/
+                }
 
                 mcSocketDenm.joinGroup(GROUP);
             } catch (Exception e) {
@@ -494,11 +496,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void run() {
 
                 try {
-                    /*Uncomment in case of IPv6 problems on Samsung
+                    //Uncomment in case of IPv6 problems on Samsung
                     NetworkInterface nif = NetworkInterface.getByName("wlan0");
                     if (null != nif) {
                         mcSocketCam.setNetworkInterface(nif);
-                        }*/
+                        }
                     byte[] buffer = new byte[256];
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
@@ -525,11 +527,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void run() {
                 try {
-                    /*Uncomment in case of IPv6 problems on Samsung
+                    //Uncomment in case of IPv6 problems on Samsung
                     NetworkInterface nif = NetworkInterface.getByName("wlan0");
                     if (null != nif) {
                         mcSocketDenm.setNetworkInterface(nif);
-                    }*/
+                    }
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
                         byte[] buffer = new byte[256];
@@ -551,16 +553,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             JSONObject rjsonObj = new JSONObject(msgReceived);
             //Get keys and values to use in the future
             Double Lati = rjsonObj.getDouble("Lat");
-            Double Longi = rjsonObj.getDouble("Longi");
+            Double Longi = rjsonObj.getDouble("Long");
             final String Message = (String) rjsonObj.get("Message");
             int MessageType = rjsonObj.getInt("MessageTypeID");
-            Long TimeToLive = (long) (rjsonObj.getDouble("Lebensdauer"))*1000;
+            Long TimeToLive = (long) (rjsonObj.getDouble("LifeTime"))*1000;
             String situation = "Null";
 
             switch (MessageType){
                 //Position Daten
                 case 0:
-                    situation = "Location";
+                    situation = "red";
 
                 break;
                 //Unfall
@@ -575,7 +577,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     break;
                 //Speedlimit
                 case 3:
-                    situation="speedlimit";
+                    situation="maxspeed";
                     break;
                 //Error
                 default:
@@ -584,7 +586,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             //Display icon on map and message received on the screen
             displayMarker(Lati,Longi,TimeToLive,situation);
-            if (!(Message.equals("0"))) {
+            if (!(Message.equals("0") || Message.equals("None"))) {
                 displayMsg(Message);
             }
         } catch (JSONException e) {
@@ -620,14 +622,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void displayMarker(final Double Lati, final Double Longi, long TTL, String type){
         final long TimeToLive = TTL;
         final BitmapDescriptor myicon;
-
-        if (type.equals("Location")){
-            int id = getResources().getIdentifier("red", "drawable", getPackageName());
-            myicon = BitmapDescriptorFactory.fromResource(id);
-        }
-        else {
-            myicon = BitmapDescriptorFactory.fromBitmap(resizer(type, 80, 80));
-        };
+        int id = getResources().getIdentifier(type, "drawable", getPackageName());
+        myicon = BitmapDescriptorFactory.fromResource(id);
 
         runOnUiThread(new Runnable(){
             @Override
@@ -645,11 +641,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 /*-----Customize characteristics of the markers: Size and time to fade--------*/
 
-    public Bitmap resizer(String iconName, int width, int height) {
-        Bitmap imgBitmap = BitmapFactory.decodeResource(getResources(), getResources().getIdentifier(iconName, "drawable", getPackageName()));
-        Bitmap resizedBitmap = Bitmap.createScaledBitmap(imgBitmap, width, height, false);
-        return resizedBitmap;
-    }
 
     public void fadeTime(long duration, Marker marker) {
 
@@ -713,6 +704,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
+
+
+
+
+
+
 
 
 
