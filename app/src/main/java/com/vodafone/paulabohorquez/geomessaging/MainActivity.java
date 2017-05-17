@@ -68,6 +68,9 @@ import java.io.IOException;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Enumeration;
+
+import static android.R.attr.type;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, LocationListener {
@@ -88,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public int pastCellID;
     public boolean changed;
     public String temp;
+    public String tempint;
 
 
     /*---------------Initialize Variables - MSG ---------------------*/
@@ -150,8 +154,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (gsmlocation != null) {
                 pastCellID = gsmlocation.getCid();
                 System.out.println("Cell ID:"+pastCellID);
-                //getGroupAddr();
-                //System.out.println(MCAST_ADDR);
+                getGroupAddr();
+                System.out.println("This is my IP Address:     "+MCAST_ADDR);
             }
         }
 
@@ -192,28 +196,40 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         //mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
     /*-------------Send messages with my current location-------*/
         if (startedApp) {
-            sendMessage(createMessage(0, 5, "0").toString(), PORTCAM, mcSocketCam);
+            sendMessage(createMessage(0, 5, "None").toString(), PORTCAM, mcSocketCam);
         }
 
 
 
         /*-----------Check if Cell changed, if so then recalculate Multicast IP address--------*/
 
-    /*========================
+
         if (changedCellID()){
 
             try {
                 mcSocketDenm.leaveGroup(GROUP);
                 mcSocketCam.leaveGroup(GROUP);
-                createSockets(getGroupAddr());
 
             } catch (IOException e) {
                 e.printStackTrace();
+                Log.e("ChangedCellID","Error: Could not leave group");
             }
-        } ============================ */
+
+            try{
+                mcSocketCam.joinGroup(InetAddress.getByName(getGroupAddr()));
+                mcSocketDenm.joinGroup(InetAddress.getByName(getGroupAddr()));
+
+            }catch (IOException e){
+                e.printStackTrace();
+                Log.e("ChangedCellID","Error: Could not join new group");
+            }
+
+
+
+        }
     }
 
-//======================================================
+    //======================================================
 //Check if the Cell ID changed, when location changed.
     public boolean changedCellID(){
         if (telephony.getPhoneType() == TelephonyManager.PHONE_TYPE_GSM) {
@@ -230,7 +246,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         return changed;
     }
-//Calculate IP Multicast Address
+    //Calculate IP Multicast Address
     public String getGroupAddr (){
         String sub1;
         String sub2;
@@ -241,15 +257,21 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0, 3));
             mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
             cid = gsmlocation.getCid();
-            temp = "" + mcc + mnc + lac + cid;
-            temp = Integer.toHexString(Integer.parseInt(temp));
-            String toHex = new BigInteger(temp).toString(16);
+            tempint = "" + mcc + mnc + lac + cid;
+            System.out.print("This is my tempint   "+tempint);
+
+
+
+            String toHex = Long.toHexString(Long.parseLong(tempint));
+
+
             sub1 = toHex.substring(0,toHex.length()%4);
             for(int i = toHex.length()%4; i<toHex.length(); i+=4){
                 sub2 = toHex.substring(i,i+4);
                 sub1 = sub1 + ":"+sub2;
             }
             MCAST_ADDR = "FF1E::"+ sub1;
+            System.out.print("This is my new address after LONG conv  "+MCAST_ADDR);
         }
         return MCAST_ADDR;
     }
@@ -293,14 +315,29 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void onClick(View v) {
                 startedApp = false;
+                //TODO: Close socket aswell , test if socket.close works
                 //Leave multicast group for the two sockets
                 try {
                     mcSocketDenm.leaveGroup(GROUP);
+                    mcSocketDenm.close();
+
                     mcSocketCam.leaveGroup(GROUP);
+                    mcSocketCam.close();
 
                 } catch (IOException e) {
                     e.printStackTrace();
+
+                    Log.e("Stop Button","Error leaving group and/or closing socket");
                 }
+
+                if (mcSocketCam.isClosed()){
+                    System.out.print("CAM Socket succesfully closed!");
+                }
+                if(mcSocketDenm.isClosed()){
+                    System.out.print("DENM Socket succesfully closed!");
+                }
+
+
             }
         });
 
@@ -308,6 +345,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         accidentButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                //TODO: Send message for TimeToliveTime
                 sendMessage(createMessage(1, 15, "Accident reported").toString(), PORTDENM, mcSocketDenm);
             }
         });
@@ -402,13 +440,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         jarr.put(0);
         //JSON Object to store data
         try {
-            myJO.put("MessageTypeID", type);
-            myJO.put("CreationTime", 12);
-            myJO.put("LifeTime", timetolive);
-            myJO.put("Lat",mLastLocation.getLatitude());
+            myJO.put("CreationTime", System.currentTimeMillis());
             myJO.put("Long",mLastLocation.getLongitude());
-            myJO.put("Cell ID",jarr);
+            myJO.put("Lat",mLastLocation.getLatitude());
+            myJO.put("LifeTime", timetolive);
             myJO.put("Message", message);
+            myJO.put("MessageTypeID", type);
+            myJO.put("CellID",jarr);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -422,9 +460,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             try {
                 GROUP = InetAddress.getByName(mcAddress);
                 mcSocketCam = new MulticastSocket(PORTCAM);
-
-                //Uncomment in case of IPv6 problems on Samsung
-                NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                mcSocketCam.setTimeToLive(10);
+                NetworkInterface nif = NetworkInterface.getByName("tun0");
                 if (null != nif) {
                     System.out.println("picking interface " + nif.getName() + " for CAM transmit");
                     mcSocketCam.setNetworkInterface(nif);
@@ -441,9 +478,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             try {
                 GROUP = InetAddress.getByName(mcAddress);
                 mcSocketDenm = new MulticastSocket(PORTDENM);
-
-                //Uncomment in case of IPv6 problems on Samsung
-                NetworkInterface nif = NetworkInterface.getByName("wlan0");
+                mcSocketDenm.setTimeToLive(10);
+                //Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces();
+                NetworkInterface nif = NetworkInterface.getByName("tun0");
                 if (null != nif) {
                     mcSocketDenm.setNetworkInterface(nif);
                 }
@@ -496,11 +533,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void run() {
 
                 try {
-                    //Uncomment in case of IPv6 problems on Samsung
-                    NetworkInterface nif = NetworkInterface.getByName("wlan0");
-                    if (null != nif) {
-                        mcSocketCam.setNetworkInterface(nif);
-                        }
+
                     byte[] buffer = new byte[256];
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
@@ -527,11 +560,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void run() {
                 try {
-                    //Uncomment in case of IPv6 problems on Samsung
-                    NetworkInterface nif = NetworkInterface.getByName("wlan0");
-                    if (null != nif) {
-                        mcSocketDenm.setNetworkInterface(nif);
-                    }
+
                     while (startedApp){
                         // Create a buffer of bytes, which will be used to store incoming messages
                         byte[] buffer = new byte[256];
@@ -554,7 +583,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             //Get keys and values to use in the future
             Double Lati = rjsonObj.getDouble("Lat");
             Double Longi = rjsonObj.getDouble("Long");
-            final String Message = (String) rjsonObj.get("Message");
+            String Message = rjsonObj.getString("Message");
             int MessageType = rjsonObj.getInt("MessageTypeID");
             Long TimeToLive = (long) (rjsonObj.getDouble("LifeTime"))*1000;
             String situation = "Null";
@@ -564,7 +593,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 case 0:
                     situation = "red";
 
-                break;
+                    break;
                 //Unfall
                 case 1:
                     situation = "accident";
