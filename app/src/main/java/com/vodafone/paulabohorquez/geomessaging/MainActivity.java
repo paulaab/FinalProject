@@ -2,6 +2,7 @@ package com.vodafone.paulabohorquez.geomessaging;
 
 import android.Manifest;
 import android.animation.ValueAnimator;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -15,11 +16,14 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.telephony.TelephonyManager;
 import android.telephony.gsm.GsmCellLocation;
+import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -70,6 +74,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
 
+import static android.R.attr.longClickable;
 import static android.R.attr.type;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
@@ -89,6 +94,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public int lac;
     public int cid;
     public int pastCellID;
+    public long globalCellID;
     public boolean changed;
     public String temp;
     public String tempint;
@@ -103,6 +109,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected int PORTCAM = 8005;//5433;
     private Toolbar toolbar;
     private static String MCAST_ADDR = "FF1E::0"; //Default address
+    public String insertedcidValue;
 
     private static InetAddress GROUP;
     private MulticastSocket mcSocketCam;
@@ -110,6 +117,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private DatagramPacket mcPacketSend;
     volatile boolean startedApp = false;
     public TelephonyManager telephony;
+    volatile boolean insertedCid = false;
 
     public MainActivity() throws IOException {
         System.out.println("Could not set up the sockets");
@@ -154,7 +162,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (gsmlocation != null) {
                 pastCellID = gsmlocation.getCid();
                 System.out.println("Cell ID:"+pastCellID);
-                getGroupAddr();
+                try {
+                    getGroupAddr();
+                } catch (UnknownHostException e) {
+                    e.printStackTrace();
+                }
                 System.out.println("This is my IP Address:     "+MCAST_ADDR);
             }
         }
@@ -247,21 +259,27 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         return changed;
     }
     //Calculate IP Multicast Address
-    public String getGroupAddr (){
-        String sub1;
-        String sub2;
-        GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
-        String networkOperator = telephony.getNetworkOperator();
-        if (gsmlocation != null && networkOperator != null ) {
-            lac = gsmlocation.getLac();
-            mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0, 3));
-            mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
-            cid = gsmlocation.getCid();
-            tempint = "" + mcc + mnc + lac + cid;
+    public String getGroupAddr () throws UnknownHostException {
+
+        if (insertedCid){
+            tempint = insertedcidValue;
+        }
+        else {
+            String sub1;
+            String sub2;
+            GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
+            String networkOperator = telephony.getNetworkOperator();
+            if (gsmlocation != null && networkOperator != null ) {
+                lac = gsmlocation.getLac();
+                lac = 65534;
+                mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0, 3));
+                mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
+                cid = gsmlocation.getCid();
+                tempint = "" + mcc + mnc + lac + cid;
+            }
+
             System.out.print("This is my tempint   "+tempint);
-
-
-
+            globalCellID = Long.parseLong(tempint);
             String toHex = Long.toHexString(Long.parseLong(tempint));
 
 
@@ -273,6 +291,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             MCAST_ADDR = "FF1E::"+ sub1;
             System.out.print("This is my new address after LONG conv  "+MCAST_ADDR);
         }
+        //TODO: wenn keine reale CellID benutzt werden soll sollte die MCAST_ADDR wieder auf den default wert gesetzt werden
+        InetAddress ipAdd = InetAddress.getByName(MCAST_ADDR);
+
+        if (!ipAdd.isMulticastAddress()){
+            MCAST_ADDR = "FF1E::0"; //Assign default Address
+        }
+
+
+
         return MCAST_ADDR;
     }
 
@@ -315,7 +342,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void onClick(View v) {
                 startedApp = false;
-                //TODO: Close socket aswell , test if socket.close works
                 //Leave multicast group for the two sockets
                 try {
                     mcSocketDenm.leaveGroup(GROUP);
@@ -345,8 +371,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         accidentButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //TODO: Send message for TimeToliveTime
-                sendMessage(createMessage(1, 15, "Accident reported").toString(), PORTDENM, mcSocketDenm);
+                //TODO: Send message for TimeToliveTime. ES sollen für z.B. 15 sec die DENM jede seconde wieder versendet werden.
+                showttlDialog();
+
+
+
+
             }
         });
     }
@@ -436,8 +466,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
          /*---------------Creating JSON Object-------------------*/
         final JSONObject myJO = new JSONObject();
         JSONArray jarr = new JSONArray();
-        //jarr = jarr.put(pastCellID);
-        jarr.put(0);
+        jarr = jarr.put(globalCellID);
+        //jarr.put(0);
         //JSON Object to store data
         try {
             myJO.put("CreationTime", System.currentTimeMillis());
@@ -731,16 +761,106 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
+
         return true;
     }
 
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.action_settings:
+                showSettingsDialog();
+                return true;
+
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+    //Display settings for choosing RSRP Values and update colors on the map
+
+    public void showSettingsDialog(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        // Get the layout inflater
+        LayoutInflater inflater = this.getLayoutInflater();
+        final View dView = inflater.inflate(R.layout.dialog_settings, null);
+        builder.setView(dView);
+        final EditText cidInput =(EditText) dView.findViewById(R.id.cidInput);
 
 
 
+        builder        .setPositiveButton(R.string.continues, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int id) {
+                insertedCid = true;
+                insertedcidValue = cidInput.getText().toString();
+                if (!insertedcidValue.isEmpty()) {
+                    try {
+                        mcSocketDenm.leaveGroup(GROUP);
+                        mcSocketCam.leaveGroup(GROUP);
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        Log.e("ChangedCellID", "Error: Could not leave group");
+                    }
+
+                    try {
+                        mcSocketCam.joinGroup(InetAddress.getByName(getGroupAddr()));
+                        mcSocketDenm.joinGroup(InetAddress.getByName(getGroupAddr()));
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        Log.e("ChangedCellID", "Error: Could not join new group");
+                    }
+                    insertedCid = false;
+                }
+
+            }
+        })
+                .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.dismiss();
+                    }
+                });
+        AlertDialog ad = builder.create();
+        ad.show();
+    }
+
+    public void showttlDialog(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        // Get the layout inflater
+        LayoutInflater inflater = this.getLayoutInflater();
+        final View dView = inflater.inflate(R.layout.dialog_ttl, null);
+        builder.setView(dView);
+        final EditText ttlInput =(EditText) dView.findViewById(R.id.ttlInput);
 
 
+        // Inflate and set the layout for the dialog
+        // Pass null as the parent view because its going in the dialog layout
+        // Add action buttons
+        builder        .setPositiveButton(R.string.continues, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int id) {
+                long myttl;
 
+                if (!ttlInput.getText().toString().isEmpty()){
+                    myttl = Long.parseLong(ttlInput.getText().toString());
+                }
+                else {myttl = 15;} //(Default)
+
+                sendMessage(createMessage(1, myttl, "Accident reported").toString(), PORTDENM, mcSocketDenm);
+
+            }
+        })
+                .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.dismiss();
+                    }
+                });
+        AlertDialog ad = builder.create();
+        ad.show();
+    }
 
 
 }
