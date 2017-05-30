@@ -573,6 +573,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         mcSocketCam.receive(mcPacketRecv);
                         //Decide what to show with info received
                         String msg = new String(buffer, 0, buffer.length);
+                        //System.out.print("Received:" + msg);
                         interpretMessage(msg);
                     }
                 } catch (IOException ex) {
@@ -598,7 +599,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         DatagramPacket mcPacketRecv2 = new DatagramPacket(buffer, buffer.length);
                         mcSocketDenm.receive(mcPacketRecv2);
                         String msg = new String(buffer, 0, buffer.length);
+                        System.out.print("Received DENM: " +msg);
                         interpretMessage(msg);
+
                     }
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -778,7 +781,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 return super.onOptionsItemSelected(item);
         }
     }
-    //Display settings for choosing RSRP Values and update colors on the map
+    //Display settings dialog for changing Cell ID and rejoining group
 
     public void showSettingsDialog(){
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -820,7 +823,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         })
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
+
                         dialog.dismiss();
+
                     }
                 });
         AlertDialog ad = builder.create();
