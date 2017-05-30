@@ -3,4 +3,6 @@
     <string name="title_activity_main">GEOM</string>
     <string name="continues">Apply</string>
     <string name="cancel">Cancel</string>
+    <string name="connected">Connect</string>
+    <string name="disconnected">Disconnect</string>
 </resources>

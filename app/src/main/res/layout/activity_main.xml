@@ -28,33 +28,27 @@
         <LinearLayout
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
-            android:layout_weight="2"
+            android:layout_weight="1.5"
 
             android:background="@color/colorPrimaryDark">
-            <Button
-                android:id="@+id/startButton"
-                android:layout_width="0dp"
+            <ToggleButton
+                android:id="@+id/togglebutton"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
                 android:layout_weight=".50"
-                android:drawableTop="@drawable/check"
+                android:textOff="Connect"
+                android:textOn="Disconnect"
+                android:textAlignment="center"
+                android:textColor="@color/white"/>
 
-
-                android:text="Connect"
-                android:theme="@style/AppTheme.ButtonStart" />
-            <Button
-                android:id="@+id/stopButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight=".50"
-                android:drawableTop="@drawable/close"
-                android:text="Disconnect"
-                android:theme="@style/AppTheme.ButtonStop" />
             <Button
                 android:id="@+id/accidentButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight=".50"
                 android:drawableTop="@drawable/error"
+                android:layout_gravity="center_vertical"
                 android:text="Accident"
                 android:theme="@style/AppTheme.ButtonInform" />
         </LinearLayout>

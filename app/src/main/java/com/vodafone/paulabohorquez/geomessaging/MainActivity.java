@@ -29,6 +29,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.LinearInterpolator;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -58,6 +59,7 @@ import android.widget.ListView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.view.View;
+import android.widget.ToggleButton;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -108,8 +110,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected int PORTDENM = 8006;//5432;
     protected int PORTCAM = 8005;//5433;
     private Toolbar toolbar;
-    private static String MCAST_ADDR = "FF1E::0"; //Default address
+    public volatile String MCAST_ADDR; //Default address
     public String insertedcidValue;
+    private String DEFAULTADDR = "FF1E::0";
 
     private static InetAddress GROUP;
     private MulticastSocket mcSocketCam;
@@ -137,7 +140,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         window.setStatusBarColor(ContextCompat.getColor(this,R.color.colorPrimaryDark));
 
-
+        MCAST_ADDR = DEFAULTADDR;
 
         /*-------------GOOGLE MAPS Initialization--------------------*/
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -260,24 +263,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
     //Calculate IP Multicast Address
     public String getGroupAddr () throws UnknownHostException {
-
+        String sub1;
+        String sub2;
+        GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
+        String networkOperator = telephony.getNetworkOperator();
+        if (gsmlocation != null && networkOperator != null ) {
+            lac = gsmlocation.getLac();
+            lac = 65534;
+            mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0, 3));
+            mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
         if (insertedCid){
-            tempint = insertedcidValue;
+            cid = Integer.parseInt(insertedcidValue);
+            System.out.println("The new added CID is: " + cid);
         }
         else {
-            String sub1;
-            String sub2;
-            GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
-            String networkOperator = telephony.getNetworkOperator();
-            if (gsmlocation != null && networkOperator != null ) {
-                lac = gsmlocation.getLac();
-                lac = 65534;
-                mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0, 3));
-                mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
-                cid = gsmlocation.getCid();
-                tempint = "" + mcc + mnc + lac + cid;
-            }
 
+                cid = gsmlocation.getCid();
+
+            }
+            tempint = "" + mcc + mnc + lac + cid;
             System.out.print("This is my tempint   "+tempint);
             globalCellID = Long.parseLong(tempint);
             String toHex = Long.toHexString(Long.parseLong(tempint));
@@ -292,11 +296,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             System.out.print("This is my new address after LONG conv  "+MCAST_ADDR);
         }
         //TODO: wenn keine reale CellID benutzt werden soll sollte die MCAST_ADDR wieder auf den default wert gesetzt werden
-        InetAddress ipAdd = InetAddress.getByName(MCAST_ADDR);
+        //InetAddress ipAdd = InetAddress.getByName(MCAST_ADDR);
 
-        if (!ipAdd.isMulticastAddress()){
-            MCAST_ADDR = "FF1E::0"; //Assign default Address
-        }
+        //if (!ipAdd.isMulticastAddress()){
+          //  MCAST_ADDR = DEFAULTADDR; //Assign default Address
+        //}
 
 
 
@@ -317,11 +321,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         /*---------------Initialize buttons - MAPS ---------------------*/
         final Button accidentButton = (Button) findViewById(R.id.accidentButton);
-        final Button stopButton = (Button) findViewById(R.id.stopButton);
-        final Button startButton = (Button) findViewById(R.id.startButton);
+        //final Button stopButton = (Button) findViewById(R.id.stopButton);
+        //final Button startButton = (Button) findViewById(R.id.startButton);
 
         /*-------------------Setting on-click listener for all buttons----------*/
-
+/*
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -341,31 +345,100 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startedApp = false;
-                //Leave multicast group for the two sockets
-                try {
-                    mcSocketDenm.leaveGroup(GROUP);
-                    mcSocketDenm.close();
+                if (startedApp == true) {
+                    startedApp = false;
+                    //Leave multicast group for the two sockets
+                    try {
+                        mcSocketDenm.leaveGroup(GROUP);
+                        mcSocketDenm.close();
 
-                    mcSocketCam.leaveGroup(GROUP);
-                    mcSocketCam.close();
 
-                } catch (IOException e) {
-                    e.printStackTrace();
+                        mcSocketCam.leaveGroup(GROUP);
+                        mcSocketCam.close();
 
-                    Log.e("Stop Button","Error leaving group and/or closing socket");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+
+                        Log.e("Stop Button","Error leaving group and/or closing socket");
+                    }
+
+                    if (mcSocketCam.isClosed()){
+                        System.out.print("CAM Socket succesfully closed!");
+                        mcSocketCam = null;
+                    }
+                    if(mcSocketDenm.isClosed()){
+                        System.out.print("DENM Socket succesfully closed!");
+                        mcSocketDenm = null;
+                    }
+                    startedApp = false;
+
+
                 }
-
-                if (mcSocketCam.isClosed()){
-                    System.out.print("CAM Socket succesfully closed!");
-                }
-                if(mcSocketDenm.isClosed()){
-                    System.out.print("DENM Socket succesfully closed!");
-                }
-
 
             }
+        });*/
+
+        ToggleButton toggle = (ToggleButton) findViewById(R.id.togglebutton);
+        toggle.setBackgroundColor(getResources().getColor(R.color.lightGreen));
+        toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    // The toggle is enabled
+                    buttonView.setBackgroundColor(getResources().getColor(R.color.lightBrown));
+
+                    startedApp = true;
+                    //Create CAM and DENM sockets
+                    createSockets(MCAST_ADDR);
+                    //Allow reception from messages in two different threads
+                    try {
+                        receiveMessageCAM();
+                        receiveMessageDENM();
+                    } catch (UnknownHostException e) {
+                        e.printStackTrace();
+                    }
+                    Toast.makeText(MainActivity.this,"You are connected now!",Toast.LENGTH_LONG).show();
+                } else {
+                    // The toggle is disabled
+                    buttonView.setBackgroundColor(getResources().getColor(R.color.lightGreen));
+
+                    if (startedApp == true) {
+                        startedApp = false;
+                        //Leave multicast group for the two sockets
+                        try {
+                            mcSocketDenm.leaveGroup(GROUP);
+                            mcSocketDenm.close();
+
+
+                            mcSocketCam.leaveGroup(GROUP);
+                            mcSocketCam.close();
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
+
+                            Log.e("Stop Button","Error leaving group and/or closing socket");
+                        }
+
+                        if (mcSocketCam.isClosed()){
+                            System.out.print("CAM Socket succesfully closed!");
+                            mcSocketCam = null;
+                        }
+                        if(mcSocketDenm.isClosed()){
+                            System.out.print("DENM Socket succesfully closed!");
+                            mcSocketDenm = null;
+                        }
+                        startedApp = false;
+
+
+                        Toast.makeText(MainActivity.this,"Disconnected from the network!",Toast.LENGTH_LONG).show();
+
+
+
+                    }
+
+                }
+            }
         });
+
 
 
         accidentButton.setOnClickListener(new View.OnClickListener() {
@@ -798,31 +871,80 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void onClick(DialogInterface dialog, int id) {
                 insertedCid = true;
                 insertedcidValue = cidInput.getText().toString();
+
                 if (!insertedcidValue.isEmpty()) {
-                    try {
-                        mcSocketDenm.leaveGroup(GROUP);
-                        mcSocketCam.leaveGroup(GROUP);
+                    if (insertedcidValue.length() >= 4){
 
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        Log.e("ChangedCellID", "Error: Could not leave group");
+
+                        new Thread(new Runnable(){
+                            @Override
+                            public void run() {
+                                try {
+                                    mcSocketDenm.leaveGroup(GROUP);
+                                    mcSocketCam.leaveGroup(GROUP);
+
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    Log.e("ChangedCellID", "Error: Could not leave group");
+                                }
+
+                                try {
+                                    mcSocketCam.joinGroup(InetAddress.getByName(getGroupAddr()));
+                                    mcSocketDenm.joinGroup(InetAddress.getByName(getGroupAddr()));
+
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    Log.e("ChangedCellID", "Error: Could not join new group");
+                                }
+
+
+                            }
+                        }).start();
+
+
+                        Toast.makeText(MainActivity.this, "Using CELL ID: " + insertedcidValue + "\nMy current IP is: "+MCAST_ADDR,Toast.LENGTH_LONG).show();
+                        //Toast.makeText(MainActivity.this, "My current IP is:  " + MCAST_ADDR,Toast.LENGTH_LONG).show();
+
+                    }
+                    else {
+                        Toast.makeText(MainActivity.this, "CellID should at least contain 4 numbers!",Toast.LENGTH_LONG).show();
                     }
 
-                    try {
-                        mcSocketCam.joinGroup(InetAddress.getByName(getGroupAddr()));
-                        mcSocketDenm.joinGroup(InetAddress.getByName(getGroupAddr()));
-
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        Log.e("ChangedCellID", "Error: Could not join new group");
-                    }
-                    insertedCid = false;
                 }
+                insertedCid = false;
 
             }
         })
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
+
+                        Thread thread = new Thread(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                try {
+                                    mcSocketDenm.leaveGroup(GROUP);
+                                    mcSocketCam.leaveGroup(GROUP);
+
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    Log.e("ChangedCellID","Error: Could not leave group");
+                                }
+
+                                try{
+                                    mcSocketCam.joinGroup(InetAddress.getByName(DEFAULTADDR));
+                                    mcSocketDenm.joinGroup(InetAddress.getByName(DEFAULTADDR));
+
+                                }catch (IOException e){
+                                    e.printStackTrace();
+                                    Log.e("ChangedCellID","Error: Could not join new group");
+                                }
+
+                            }
+                        });
+
+                        thread.start();
+                        Toast.makeText(MainActivity.this, "My current IP is:  " + MCAST_ADDR,Toast.LENGTH_LONG).show();
 
                         dialog.dismiss();
 
