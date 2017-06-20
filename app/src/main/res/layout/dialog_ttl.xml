@@ -4,16 +4,29 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:scaleType="center"
-        android:background="@color/lightGreen"
-        android:text="TTL"
-        android:textAlignment="center"
+    <RelativeLayout
+        android:layout_height="match_parent"
+        android:layout_width="match_parent">
+        <ImageView
+            android:id="@+id/myImageView"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:background="@color/lightGreen"/>
 
-
-        />
+        <TextView
+            android:id="@+id/myImageViewText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignLeft="@+id/myImageView"
+            android:layout_alignTop="@+id/myImageView"
+            android:layout_alignRight="@+id/myImageView"
+            android:layout_alignBottom="@+id/myImageView"
+            android:layout_margin="1dp"
+            android:gravity="center"
+            android:text="Set the TTL"
+            android:textColor="@color/whitePaper"
+            android:textStyle="bold"/>
+    </RelativeLayout>
     <EditText
         android:id="@+id/ttlInput"
         android:layout_width="match_parent"

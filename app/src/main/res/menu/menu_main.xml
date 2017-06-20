@@ -10,7 +10,7 @@
             android:title="Settings"
             app:showAsAction="never" />
         <item
-            android:id="@+id/action_search"
+            android:id="@+id/action_info"
             android:orderInCategory="200"
             android:title="Info"
             android:icon="@drawable/info"
@@ -18,7 +18,7 @@
 
             ></item>
         <item
-            android:id="@+id/action_user"
+            android:id="@+id/action_share"
             android:orderInCategory="300"
             android:title="Share"
             android:icon="@drawable/share"

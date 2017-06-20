@@ -5,4 +5,6 @@
     <string name="cancel">Cancel</string>
     <string name="connected">Connect</string>
     <string name="disconnected">Disconnect</string>
+    <string name="cellID">My Cell ID</string>
+    <string name="myIP">My current IP Address</string>
 </resources>
