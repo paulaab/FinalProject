@@ -1036,6 +1036,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         final View dView = inflater.inflate(R.layout.dialog_ttl, null);
         builder.setView(dView);
         final EditText ttlInput =(EditText) dView.findViewById(R.id.ttlInput);
+        final EditText ttltimeInput =(EditText) dView.findViewById(R.id.ttltimeInput);
 
 
         // Inflate and set the layout for the dialog
@@ -1048,22 +1049,28 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        long myttl;
+                        long myttfade;
+                        int numberofsending;
 
-                        if (!ttlInput.getText().toString().isEmpty()){
-                            myttl = Long.parseLong(ttlInput.getText().toString());
+                        if (!ttlInput.getText().toString().isEmpty()&&!ttltimeInput.getText().toString().isEmpty()){
+                            myttfade = Long.parseLong(ttlInput.getText().toString());
+                            numberofsending = Integer.parseInt(ttltimeInput.getText().toString());
+
                         }
-                        else {myttl = 15;} //(Default)
+                        else {
+                            myttfade = 5;
+                            numberofsending = 15;
+                        } //(Default)
 
 
-                        while(myttl>0){
-                            sendMessage(createMessage(1, 15, "Accident reported").toString(), PORTDENM, mcSocketDenm);
+                        while(numberofsending>0){
+                            sendMessage(createMessage(1, myttfade, "Accident reported").toString(), PORTDENM, mcSocketDenm);
                             try {
                                 TimeUnit.SECONDS.sleep(1);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
-                            myttl = myttl-1;
+                            numberofsending = numberofsending-1;
                         }
 
 
