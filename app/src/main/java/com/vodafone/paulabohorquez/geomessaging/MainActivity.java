@@ -225,7 +225,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         //mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
     /*-------------Send messages with my current location-------*/
         if (startedApp) {
-            sendMessage(createMessage(0, 10, "None").toString(), PORTCAM, mcSocketCam);
+            sendMessage(createMessage(0,10, "None").toString(), PORTCAM, mcSocketCam);
         }
 
 
@@ -283,27 +283,42 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
     //Calculate IP Multicast Address
     public InetAddress getMCGroupAddr (boolean setDefaultAddress) throws UnknownHostException {
-        if (!setDefaultAddress){
-            String sub1;
-            String sub2;
+
+        String sub1;
+        String sub2;
+
+        if (!setDefaultAddress) {
+
             GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
             String networkOperator = telephony.getNetworkOperator();
 
-            if (gsmlocation != null && networkOperator != null ) {
+            if (gsmlocation != null && networkOperator != null) {
                 lac = gsmlocation.getLac();
                 lac = 65534;
                 mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0, 3));
                 mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
-                if (insertedCid){
+
+                if (insertedCid) {
                     cid = Integer.parseInt(insertedcidValue);
                     pastCellID = cid;
                     System.out.println("The new added CID is: " + cid);
-                }
-                else {
+                } else {
 
                     cid = gsmlocation.getCid();
 
                 }
+            }
+        }
+            else {
+                //MCAST_ADDR = InetAddress.getByName(DEFAULTADDR);
+            cid = 0;
+            pastCellID = cid;
+            lac = 0;
+            mcc = 0;
+            mnc = 0;
+            }
+
+
                 tempint = "" + mcc + mnc + lac + cid;
                // System.out.print("This is my tempint   "+tempint);
                 globalCellID = Long.parseLong(tempint);
@@ -318,11 +333,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 tempint = "FF1E::"+ sub1;
                 System.out.print("\nThis is my new address after LONG conv  "+tempint);
                 MCAST_ADDR = InetAddress.getByName(tempint);
-            }
-        }
-        else {
-            MCAST_ADDR = InetAddress.getByName(DEFAULTADDR);
-        }
+
+
 
         //TODO: wenn keine reale CellID benutzt werden soll sollte die MCAST_ADDR wieder auf den default wert gesetzt werden
         //InetAddress ipAdd = InetAddress.getByName(MCAST_ADDR);
@@ -331,14 +343,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
           MCAST_ADDR = InetAddress.getByName(DEFAULTADDR); //Assign default Address
         }
 
-
-
-
-
-
-
         return MCAST_ADDR;
     }
+
+
 
     //==================================================
 
