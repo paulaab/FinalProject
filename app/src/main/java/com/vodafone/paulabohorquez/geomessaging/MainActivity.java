@@ -87,7 +87,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     /*----------------Initialize Variables - MAPS ----------------*/
     private GoogleMap mMap;
-    public Boolean ready;
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
     GoogleApiClient mGoogleApiClient;
     LocationRequest mLocationRequest;
@@ -207,7 +206,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             mMap.setMyLocationEnabled(true);
         }
         mMap.getUiSettings().setZoomControlsEnabled(true);
-        ready = true;
+
     }
     @Override
     public void onLocationChanged(Location location) {
@@ -226,6 +225,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     /*-------------Send messages with my current location-------*/
         if (startedApp) {
             sendMessage(createMessage(0,10, "None").toString(), PORTCAM, mcSocketCam);
+
         }
 
 
@@ -423,6 +423,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 System.out.print("DENM Socket succesfully closed!\n");
                                 mcSocketDenm = null;
                             }
+
+                            insertedCid = false;
+                            setDefault = false;
                             Toast.makeText(MainActivity.this,"Disconnected from the network!\n",Toast.LENGTH_LONG).show();
 
 
@@ -434,11 +437,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
                         startedApp = false;
-
-
-
-
-
                     }
                     else {
                         Toast.makeText(MainActivity.this,"Try to connect first!",Toast.LENGTH_LONG).show();
@@ -908,13 +906,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         builder        .setPositiveButton(R.string.continues, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int id) {
-                insertedCid = true;
+
                 insertedcidValue = cidInput.getText().toString();
 
                 if (!insertedcidValue.isEmpty()) {
                     if (insertedcidValue.length() >= 4){
 
-
+                        insertedCid = true;
                         new Thread(new Runnable(){
                             @Override
                             public void run() {
@@ -943,6 +941,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             }
                         }).start();
 
+
                         Toast.makeText(MainActivity.this, "New Cell ID assigned",Toast.LENGTH_LONG).show();
                        // Toast.makeText(MainActivity.this, "Using CELL ID: " + insertedcidValue + "\nMy current IP is: "+MCAST_ADDR,Toast.LENGTH_LONG).show();
                         //Toast.makeText(MainActivity.this, "My current IP is:  " + MCAST_ADDR,Toast.LENGTH_LONG).show();
@@ -959,7 +958,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         })
                 .setNegativeButton("Use default", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        insertedCid = false;
+                        insertedCid = true;
+
 
                         Thread thread = new Thread(new Runnable() {
 
@@ -1083,10 +1083,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
                 //sendMessage(createMessage(1, 15, "Accident reported").toString(), PORTDENM, mcSocketDenm);
-
-
-
-
                     }
                 }).start();
                 dialog.dismiss();
