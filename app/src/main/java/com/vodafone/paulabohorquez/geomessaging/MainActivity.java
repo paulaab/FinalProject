@@ -154,7 +154,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         /*-------------GOOGLE MAPS Initialization--------------------*/
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             checkLocationPermission();
         }
 
@@ -168,6 +168,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         msgList = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1);
         msgView.setAdapter(msgList);
+
+
 
         /*-----Telephony Manager initialization-----*/
         telephony = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
@@ -309,30 +311,30 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
         }
-            else {
-                //MCAST_ADDR = InetAddress.getByName(DEFAULTADDR);
+        else {
+            //MCAST_ADDR = InetAddress.getByName(DEFAULTADDR);
             cid = 0;
             pastCellID = cid;
             lac = 0;
             mcc = 0;
             mnc = 0;
-            }
+        }
 
 
-                tempint = "" + mcc + mnc + lac + cid;
-               // System.out.print("This is my tempint   "+tempint);
-                globalCellID = Long.parseLong(tempint);
-                String toHex = Long.toHexString(globalCellID );
+        tempint = "" + mcc + mnc + lac + cid;
+        // System.out.print("This is my tempint   "+tempint);
+        globalCellID = Long.parseLong(tempint);
+        String toHex = Long.toHexString(globalCellID );
 
 
-                sub1 = toHex.substring(0,toHex.length()%4);
-                for(int i = toHex.length()%4; i<toHex.length(); i+=4){
-                    sub2 = toHex.substring(i,i+4);
-                    sub1 = sub1 + ":"+sub2;
-                }
-                tempint = "FF1E::"+ sub1;
-                System.out.print("\nThis is my new address after LONG conv  "+tempint);
-                MCAST_ADDR = InetAddress.getByName(tempint);
+        sub1 = toHex.substring(0,toHex.length()%4);
+        for(int i = toHex.length()%4; i<toHex.length(); i+=4){
+            sub2 = toHex.substring(i,i+4);
+            sub1 = sub1 + ":"+sub2;
+        }
+        tempint = "FF1E::"+ sub1;
+        System.out.print("\nThis is my new address after LONG conv  "+tempint);
+        MCAST_ADDR = InetAddress.getByName(tempint);
 
 
 
@@ -340,7 +342,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         //InetAddress ipAdd = InetAddress.getByName(MCAST_ADDR);
 
         if (!MCAST_ADDR.isMulticastAddress()){
-          MCAST_ADDR = InetAddress.getByName(DEFAULTADDR); //Assign default Address
+            MCAST_ADDR = InetAddress.getByName(DEFAULTADDR); //Assign default Address
         }
 
         return MCAST_ADDR;
@@ -395,15 +397,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     if (startedOnce) {
                         startedApp = false;
-                    Log.e("Stop Button","STARTEDAPP : " + startedApp);
-                    try {
-                        TimeUnit.SECONDS.sleep(2);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
+                        Log.e("Stop Button","STARTEDAPP : " + startedApp);
+                        try {
+                            TimeUnit.SECONDS.sleep(2);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
 
 
-                    //Leave multicast group for the two sockets
+                        //Leave multicast group for the two sockets
                         try {
 
                             mcSocketDenm.leaveGroup(MCAST_ADDR);
@@ -652,7 +654,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         //System.out.print("\nINSIDE WHILE RECEIVEMSG CAM\n");
                         // Create a buffer of bytes, which will be used to store incoming messages
                         if (!mcSocketCam.isClosed()){
-                          //  System.out.print("\nRecvmsgcam:  Socket not closed yet\n");
+                            //  System.out.print("\nRecvmsgcam:  Socket not closed yet\n");
                             // Receive the info on the CAM Socket
                             DatagramPacket mcPacketRecv = new DatagramPacket(buffer, buffer.length);
                             mcSocketCam.receive(mcPacketRecv);
@@ -734,12 +736,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         break;
                     //Stau
                     case 2:
-                        situation="trafficjam";
+                        situation="maxspeed";
 
                         break;
                     //Speedlimit
                     case 3:
-                        situation="maxspeed";
+                        situation="trafficjam";
                         break;
                     //Error
                     default:
@@ -943,7 +945,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
                         Toast.makeText(MainActivity.this, "New Cell ID assigned",Toast.LENGTH_LONG).show();
-                       // Toast.makeText(MainActivity.this, "Using CELL ID: " + insertedcidValue + "\nMy current IP is: "+MCAST_ADDR,Toast.LENGTH_LONG).show();
+                        // Toast.makeText(MainActivity.this, "Using CELL ID: " + insertedcidValue + "\nMy current IP is: "+MCAST_ADDR,Toast.LENGTH_LONG).show();
                         //Toast.makeText(MainActivity.this, "My current IP is:  " + MCAST_ADDR,Toast.LENGTH_LONG).show();
 
                     }
@@ -1054,7 +1056,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void onClick(DialogInterface dialog, int id) {
 
-               new Thread(new Runnable() {
+                new Thread(new Runnable() {
                     @Override
                     public void run() {
                         long myttfade;
@@ -1082,7 +1084,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
 
 
-                //sendMessage(createMessage(1, 15, "Accident reported").toString(), PORTDENM, mcSocketDenm);
+                        //sendMessage(createMessage(1, 15, "Accident reported").toString(), PORTDENM, mcSocketDenm);
                     }
                 }).start();
                 dialog.dismiss();
@@ -1103,6 +1105,3 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
 }
-
-
-
