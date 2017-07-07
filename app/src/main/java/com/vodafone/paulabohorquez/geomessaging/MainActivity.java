@@ -142,7 +142,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Window window = this.getWindow();
         window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        window.setStatusBarColor(ContextCompat.getColor(this,R.color.colorPrimaryDark));
+//        window.setStatusBarColor(ContextCompat.getColor(this,R.color.colorPrimaryDark));
 
 
         try {
@@ -364,6 +364,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         /*---------------Initialize buttons - MAPS ---------------------*/
         final Button accidentButton = (Button) findViewById(R.id.accidentButton);
+        final Button speedButton = (Button) findViewById(R.id.speedButton);
         ToggleButton toggle = (ToggleButton) findViewById(R.id.togglebutton);
         toggle.setBackgroundColor(getResources().getColor(R.color.lightGreen));
 
@@ -454,13 +455,31 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void onClick(View v) {
                 //TODO: Send message for TimeToliveTime. ES sollen für z.B. 15 sec die DENM jede seconde wieder versendet werden.
-                showttlDialog();
+                if(startedApp) {
+                    showttlDialog();
+                }
 
+                else{
+                    Toast.makeText(MainActivity.this,"Try to connect first!",Toast.LENGTH_LONG).show();
+                }
+            }
+        });
 
-
+        speedButton.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                if(startedApp){
+                    sendMessage(createMessage(2,10,"Speed Limit on this area").toString(), PORTDENM, mcSocketDenm);
+                }
+                else{
+                    Toast.makeText(MainActivity.this,"Try to connect first!",Toast.LENGTH_LONG).show();
+                }
 
             }
         });
+
+
+
     }
 
     @Override
@@ -714,10 +733,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         if(startedApp){
             try {
+
                 JSONObject rjsonObj = new JSONObject(msgReceived);
                 //Get keys and values to use in the future
                 Double Lati = rjsonObj.getDouble("Lat");
                 Double Longi = rjsonObj.getDouble("Long");
+                int interpret = 0;
                 String Message = rjsonObj.getString("Message");
                 int MessageType = rjsonObj.getInt("MessageTypeID");
                 Long TimeToLive = (long) (rjsonObj.getDouble("LifeTime"))*1000;
@@ -746,12 +767,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     //Error
                     default:
                         System.out.println("Error: Incompatible message type");
+                        interpret = 1;
                         break;
                 }
-                //Display icon on map and message received on the screen
-                displayMarker(Lati,Longi,TimeToLive,situation);
-                if (!(Message.equals("0") || Message.equals("None"))) {
-                    displayMsg(Message);
+                if(interpret == 0){
+                    //Display icon on map and message received on the screen
+                    displayMarker(Lati,Longi,TimeToLive,situation);
+                    if (!(Message.equals("0") || Message.equals("None"))) {
+                        displayMsg(Message);
+                    }
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -880,19 +904,29 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle item selection
-        switch (item.getItemId()) {
-            case R.id.action_settings:
-                showSettingsDialog();
-                return true;
-            case R.id.action_info:
-                showInfoDialog();
-                return true;
 
-            default:
-                return super.onOptionsItemSelected(item);
-        }
+            // Handle item selection
+            switch (item.getItemId()) {
+                case R.id.action_settings:
+                    if (startedApp) {
+                        showSettingsDialog();
+                    }
+                    else{
+                        Toast.makeText(MainActivity.this,"Try to connect first!",Toast.LENGTH_LONG).show();
+                    }
+
+                    return true;
+                case R.id.action_info:
+
+                        showInfoDialog();
+                    return true;
+
+
+                default:
+                    return super.onOptionsItemSelected(item);
+            }
     }
+
     //Display settings dialog for changing Cell ID and rejoining group
 
     public void showSettingsDialog(){
@@ -1069,7 +1103,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
                         else {
                             myttfade = 5;
-                            numberofsending = 15;
+                            numberofsending = 5;
                         } //(Default)
 
 
