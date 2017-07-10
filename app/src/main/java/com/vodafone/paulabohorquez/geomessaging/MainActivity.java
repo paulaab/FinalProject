@@ -26,11 +26,13 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -50,6 +52,7 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.maps.android.SphericalUtil;
 
 
 import android.net.wifi.WifiManager;
@@ -76,6 +79,7 @@ import java.io.IOException;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.concurrent.TimeUnit;
 
@@ -102,6 +106,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public boolean changed;
     public String temp;
     public String tempint;
+
+    /*-------------Initialize Variables - List ---------------------*/
+    ArrayList<MessageSit> arrayList;
+    MessageAdapter messageAdapter;
+    ListView listView;
 
 
     /*---------------Initialize Variables - MSG ---------------------*/
@@ -143,6 +152,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
 //        window.setStatusBarColor(ContextCompat.getColor(this,R.color.colorPrimaryDark));
+        arrayList = new ArrayList<MessageSit>();
+        listView = (ListView) findViewById(R.id.listView);
+        messageAdapter = new MessageAdapter(this, arrayList);
+        listView.setAdapter(messageAdapter);
 
 
         try {
@@ -164,10 +177,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapFragment.getMapAsync(this);
 
         /*---------------List of messages initialization - MSG-----------------*/
-        msgView = (ListView) findViewById(R.id.listView);
+       /* msgView = (ListView) findViewById(R.id.listView);
         msgList = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1);
-        msgView.setAdapter(msgList);
+        msgView.setAdapter(msgList);*/
 
 
 
@@ -743,26 +756,31 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 int MessageType = rjsonObj.getInt("MessageTypeID");
                 Long TimeToLive = (long) (rjsonObj.getDouble("LifeTime"))*1000;
                 String situation = "Null";
+                String sitmsg = "Null";
 
                 switch (MessageType){
                     //Position Daten
                     case 0:
                         situation = "red";
 
+
                         break;
                     //Unfall
                     case 1:
                         situation = "accident";
+                        sitmsg = "Accident ";
 
                         break;
                     //Stau
                     case 2:
                         situation="maxspeed";
+                        sitmsg = "Speed Limit ";
 
                         break;
                     //Speedlimit
                     case 3:
                         situation="trafficjam";
+                        sitmsg = "Traffic Jam ";
                         break;
                     //Error
                     default:
@@ -774,7 +792,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     //Display icon on map and message received on the screen
                     displayMarker(Lati,Longi,TimeToLive,situation);
                     if (!(Message.equals("0") || Message.equals("None"))) {
-                        displayMsg(Message);
+
+
+                        LatLng from = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+                        LatLng to = new LatLng(Lati, Longi);
+                        String distance = Double.toString(SphericalUtil.computeDistanceBetween(from, to));
+                       /* String distance = "none";*/
+                        final MessageSit messageSit = new MessageSit(sitmsg,Message,distance);
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                messageAdapter.add(messageSit);
+                                messageAdapter.notifyDataSetChanged();
+                            }
+                        });
+
                     }
                 }
             } catch (JSONException e) {
@@ -1136,6 +1169,70 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         AlertDialog ad = builder.create();
         ad.show();
     }
+
+    public class MessageSit{
+        public String situation;
+        public String message;
+        public String distance;
+
+
+        public MessageSit(String situation, String message, String distance){
+            this.situation = situation;
+            this.message = message;
+            this.distance = distance;
+        }
+    }
+
+    public class MessageAdapter extends ArrayAdapter<MessageSit>{
+        public MessageAdapter(Context context, ArrayList<MessageSit> messages){
+            super(context,0,messages);
+        }
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            // Get the data item for this position
+            MessageSit message = getItem(position);
+            String data;
+            // Check if an existing view is being reused, otherwise inflate the view
+            if (convertView == null) {
+                convertView = LayoutInflater.from(getContext()).inflate(R.layout.list_row, parent, false);
+            }
+            // Lookup view for data population
+            TextView tvSituation = (TextView) convertView.findViewById(R.id.situation);
+            TextView tvMessage = (TextView) convertView.findViewById(R.id.message);
+            ImageView ivSituation = (ImageView) convertView.findViewById(R.id.situationView);
+            // Populate the data into the template view using the data object
+            switch (message.situation){
+                case "Accident ":
+                    ivSituation.setImageResource(R.drawable.icon_warning);
+                    break;
+                case "Speed Limit ":
+                    ivSituation.setImageResource(R.drawable.icon_speed);
+                    break;
+                case "Traffic Jam ":
+                    ivSituation.setImageResource(R.drawable.icon_traffic);
+                    break;
+                default:
+                    break;
+            }
+
+
+
+
+
+            data = message.situation + " " + "( " + message.distance + " m )";
+            tvSituation.setText(data);
+            tvMessage.setText(message.message);
+            // Return the completed view to render on screen
+            return convertView;
+        }
+
+
+    }
+
+
+
+
+
 
 
 }
