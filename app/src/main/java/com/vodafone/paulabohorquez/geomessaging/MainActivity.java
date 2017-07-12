@@ -9,6 +9,7 @@ import android.graphics.BitmapFactory;
 import android.location.Location;
 
 import android.os.Build;
+import android.os.StrictMode;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -88,6 +89,8 @@ import static android.R.attr.type;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, LocationListener {
+    //StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+
 
     /*----------------Initialize Variables - MAPS ----------------*/
     private GoogleMap mMap;
@@ -156,6 +159,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         listView = (ListView) findViewById(R.id.listView);
         messageAdapter = new MessageAdapter(this, arrayList);
         listView.setAdapter(messageAdapter);
+        //StrictMode.setThreadPolicy(policy);
+
 
 
         try {
@@ -249,24 +254,26 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
         if (changedCellID()){
-            if (!insertedCid){
+            if (!insertedCid) {
+                if (mcSocketDenm != null && mcSocketCam != null){
+                    try {
+                        mcSocketDenm.leaveGroup(MCAST_ADDR);
+                        mcSocketCam.leaveGroup(MCAST_ADDR);
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        Log.e("ChangedCellID", "Error: Could not leave past group");
+                    }
+
                 try {
-                    mcSocketDenm.leaveGroup(MCAST_ADDR);
-                    mcSocketCam.leaveGroup(MCAST_ADDR);
-
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    Log.e("ChangedCellID","Error: Could not leave past group");
-                }
-
-                try{
                     getMCGroupAddr(setDefault = false);
                     mcSocketCam.joinGroup(MCAST_ADDR);
                     mcSocketDenm.joinGroup(MCAST_ADDR);
 
-                }catch (IOException e){
+                } catch (IOException e) {
                     e.printStackTrace();
-                    Log.e("ChangedCellID","Error: Could not join new group");
+                    Log.e("ChangedCellID", "Error: Could not join new group");
+                }
                 }
 
             }
@@ -307,6 +314,39 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             GsmCellLocation gsmlocation = (GsmCellLocation) telephony.getCellLocation();
             String networkOperator = telephony.getNetworkOperator();
 
+            //From here...
+            if(insertedCid){
+                lac = 0;
+                mcc=0;
+                mnc=0;
+                cid = Integer.parseInt(insertedcidValue);
+                pastCellID = cid;
+                System.out.println("The new added CID is: " + cid);
+
+            }
+            else {
+                if (gsmlocation != null && networkOperator != null) {
+                    lac = gsmlocation.getLac();
+                    lac = 65534;
+                    mcc = Integer.parseInt(telephony.getNetworkOperator().substring(0, 3));
+                    mnc = Integer.parseInt(telephony.getNetworkOperator().substring(3));
+                    cid = gsmlocation.getCid();
+                }
+            }
+            //Until here.
+
+
+
+
+
+            /*
+            *In this code if a cellid is inserted, the ip address is calculated taking that inserted value
+            * and joining it to the real network conditions lac, mcc and mnc. That means, the inserted value IS NOT equal to
+            * the last block of  of an IP Multicast address. e.g. if inserted value of cell id is 2, the new Multicast address
+            * will not be ff1e::2 but ff1e::(lac+mnc+mcc+insertedvalue)*converted to Hexadecimal*
+            * To use it, uncomment it and comment the upper block of code between marked lines
+             */
+            /*
             if (gsmlocation != null && networkOperator != null) {
                 lac = gsmlocation.getLac();
                 lac = 65534;
@@ -322,7 +362,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     cid = gsmlocation.getCid();
 
                 }
-            }
+            } */
+
+
+
+
+
         }
         else {
             //MCAST_ADDR = InetAddress.getByName(DEFAULTADDR);
@@ -399,7 +444,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     try {
                         receiveMessageCAM();
                         receiveMessageDENM();
-                        Toast.makeText(MainActivity.this,"You are connected now!",Toast.LENGTH_LONG).show();
+                        //Toast.makeText(MainActivity.this,"You are connected now!",Toast.LENGTH_LONG).show();
                     } catch (UnknownHostException e) {
                         e.printStackTrace();
                         Toast.makeText(MainActivity.this,"An error occured, please try again",Toast.LENGTH_LONG).show();
@@ -796,7 +841,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         LatLng from = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
                         LatLng to = new LatLng(Lati, Longi);
-                        String distance = Double.toString(SphericalUtil.computeDistanceBetween(from, to));
+                        Double value = SphericalUtil.computeDistanceBetween(from, to);
+                        String distance = String.format("%.2f",value);
                        /* String distance = "none";*/
                         final MessageSit messageSit = new MessageSit(sitmsg,Message,distance);
 
@@ -979,7 +1025,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 insertedcidValue = cidInput.getText().toString();
 
                 if (!insertedcidValue.isEmpty()) {
-                    if (insertedcidValue.length() >= 4){
+
+
+
 
                         insertedCid = true;
                         new Thread(new Runnable(){
@@ -1015,10 +1063,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Toast.makeText(MainActivity.this, "Using CELL ID: " + insertedcidValue + "\nMy current IP is: "+MCAST_ADDR,Toast.LENGTH_LONG).show();
                         //Toast.makeText(MainActivity.this, "My current IP is:  " + MCAST_ADDR,Toast.LENGTH_LONG).show();
 
-                    }
-                    else {
-                        Toast.makeText(MainActivity.this, "CellID should at least contain 4 numbers!",Toast.LENGTH_LONG).show();
-                    }
+                }
+
+                else {
+                    Toast.makeText(MainActivity.this, "CellID should at least contain one number!",Toast.LENGTH_LONG).show();
 
                 }
 
